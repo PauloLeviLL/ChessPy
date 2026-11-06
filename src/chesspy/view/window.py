@@ -8,9 +8,10 @@ class GameWindow:
     WIDTH = 800
     HEIGHT = 800
     TITLE = "ChessPy"
+    SPRITE_SIZE = (100, 100)
 
-    LIGHT_SQUARE = (240, 217, 181)
-    DARK_SQUARE = (181, 136, 99)
+    LIGHT_SQUARE = (194, 214, 215)
+    DARK_SQUARE = (78, 93, 127)
 
     PIECE_SYMBOLS = {
         chess.PAWN: "P",
@@ -32,7 +33,39 @@ class GameWindow:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont("Arial", 48, bold=True)
         self.board = chess.Board()
+        self.black_sprites = self.load_sprites()
+        self.white_sprites = self.load_sprites("white")
         self.running = True
+
+    
+    def load_sprites(self, color: str = "black") -> dict:
+        sprite_path = f"assets/sprites/{color}/"
+
+        sprites = {
+            chess.KING: "Rei.png",
+            chess.QUEEN: "Rainha.png",
+            chess.ROOK: "Torre.png",
+            chess.BISHOP: "Bispo.png",
+            chess.KNIGHT: "Cavalo.png",
+            chess.PAWN: "Peao.png",
+        }
+
+        loaded_sprites = {}
+
+        for piece_type, filename in sprites.items():
+            image = pygame.image.load(
+                sprite_path + filename
+            ).convert_alpha()
+
+            image = pygame.transform.scale(
+                image,
+                self.SPRITE_SIZE,
+            )
+
+            loaded_sprites[piece_type] = image
+
+        return loaded_sprites
+
 
     def handle_events(self) -> None:
         for event in pygame.event.get():
@@ -61,6 +94,7 @@ class GameWindow:
                     ),
                 )
 
+    
     def draw_pieces(self) -> None:
         square_size = self.WIDTH // 8
 
@@ -73,24 +107,20 @@ class GameWindow:
             col = chess.square_file(square)
             row = 7 - chess.square_rank(square)
 
-            symbol = self.PIECE_SYMBOLS[piece.piece_type]
+            if piece.color == chess.BLACK:
+                image = self.black_sprites[piece.piece_type]
+            else:
+                image = self.white_sprites[piece.piece_type]
 
-            color = (
-                (255, 255, 255)
-                if piece.color == chess.WHITE
-                else (30, 30, 30)
-            )
-
-            text = self.font.render(symbol, True, color)
-
-            rect = text.get_rect(
+            rect = image.get_rect(
                 center=(
                     col * square_size + square_size // 2,
                     row * square_size + square_size // 2,
                 )
             )
 
-            self.screen.blit(text, rect)
+            self.screen.blit(image, rect)
+
 
     def update(self) -> None:
         self.draw_board()
