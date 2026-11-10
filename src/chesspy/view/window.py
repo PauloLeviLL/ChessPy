@@ -31,6 +31,20 @@ class GameWindow:
         self.clock = pygame.time.Clock()
         self.board = chess.Board()
 
+        # Fontes
+        self.font = pygame.font.SysFont(
+            "Arial",
+            48,
+            bold=True,
+        )
+
+        self.coordinate_font = pygame.font.SysFont(
+            "Arial",
+            16,
+            bold=True,
+        )
+
+        # Sprites
         self.black_sprites = self.load_sprites()
         self.white_sprites = self.load_sprites("white")
 
@@ -335,6 +349,60 @@ class GameWindow:
                     34,
                 )
 
+    def draw_coordinates(self) -> None:
+        square_size = self.WIDTH // 8
+
+        for row in range(8):
+            for col in range(8):
+
+                square_color = (
+                    self.LIGHT_SQUARE
+                    if (row + col) % 2 == 0
+                    else self.DARK_SQUARE
+                )
+
+                text_color = (
+                    self.DARK_SQUARE
+                    if square_color == self.LIGHT_SQUARE
+                    else self.LIGHT_SQUARE
+                )
+
+                # Letras: a até h
+                if row == 7:
+                    letter = chr(ord("a") + col)
+
+                    text = self.coordinate_font.render(
+                        letter,
+                        True,
+                        text_color,
+                    )
+
+                    self.screen.blit(
+                        text,
+                        (
+                            col * square_size + 5,
+                            (row + 1) * square_size - 22,
+                        ),
+                    )
+
+                # Números: 8 até 1
+                if col == 0:
+                    number = str(8 - row)
+
+                    text = self.coordinate_font.render(
+                        number,
+                        True,
+                        text_color,
+                    )
+
+                    self.screen.blit(
+                        text,
+                        (
+                            5,
+                            row * square_size + 5,
+                        ),
+                    )
+
     def draw_pieces(self) -> None:
         for square in chess.SQUARES:
 
@@ -447,6 +515,7 @@ class GameWindow:
 
     def update(self) -> None:
         self.draw_board()
+        self.draw_coordinates()
         self.draw_pieces()
         self.draw_dragged_piece()
         self.draw_animation()
