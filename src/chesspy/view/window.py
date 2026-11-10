@@ -8,7 +8,7 @@ class GameWindow:
     WIDTH = 800
     HEIGHT = 800
     TITLE = "ChessPy"
-    SPRITE_SIZE = (100, 100)
+    SPRITE_SIZE = (90, 90)
     FPS = 60
 
     LIGHT_SQUARE = (194, 214, 215)
@@ -44,6 +44,12 @@ class GameWindow:
             bold=True,
         )
 
+        self.checkmate_font = pygame.font.SysFont(
+            "Arial",
+            30,
+            bold=True,
+        )
+
         # Sprites
         self.black_sprites = self.load_sprites()
         self.white_sprites = self.load_sprites("white")
@@ -58,8 +64,12 @@ class GameWindow:
 
         # Animação
         self.animation = None
+
         # Último movimento
         self.last_move = None
+
+        # Estado da partida
+        self.game_over = False
 
     def load_sprites(self, color: str = "black") -> dict:
         sprite_path = f"assets/sprites/{color}/"
@@ -161,6 +171,10 @@ class GameWindow:
     ) -> bool:
         """Executa um movimento se ele for legal."""
 
+        # Impede movimentos após o fim da partida.
+        if self.game_over:
+            return False
+
         moving_piece = self.board.piece_at(from_square)
 
         if moving_piece is None:
@@ -168,23 +182,31 @@ class GameWindow:
 
         move = chess.Move(from_square, to_square)
 
-        # Trata a promoção do peão para Rainha
+        # Trata a promoção do peão para Rainha.
         if (
             moving_piece.piece_type == chess.PAWN
             and chess.square_rank(to_square) in (0, 7)
         ):
-            move = chess.Move(from_square, to_square, promotion=chess.QUEEN)
+            move = chess.Move(
+                from_square,
+                to_square,
+                promotion=chess.QUEEN,
+            )
 
         if move not in self.board.legal_moves:
             return False
 
         self.last_move = move
 
-        # Inicia a animação antes de atualizar o estado do tabuleiro
+        # Inicia a animação antes de atualizar o estado do tabuleiro.
         if animate:
             self.start_animation(move, moving_piece)
 
         self.board.push(move)
+
+        # Verifica se o movimento terminou a partida.
+        if self.board.is_checkmate():
+            self.game_over = True
 
         self.selected_square = None
         self.dragging = False
@@ -196,7 +218,7 @@ class GameWindow:
     def handle_mouse_down(self, event):
         """Processa o início de um clique ou arraste."""
 
-        if self.animation is not None:
+        if self.game_over or self.animation is not None:
             return
 
         square = self.get_square_from_position(event.pos)
@@ -228,13 +250,16 @@ class GameWindow:
     def handle_mouse_motion(self, event):
         """Atualiza a posição da peça durante o arraste."""
 
+        if self.game_over:
+            return
+
         if self.dragging:
             self.drag_position = event.pos
 
     def handle_mouse_up(self, event):
         """Finaliza o arraste e valida o destino."""
 
-        if not self.dragging:
+        if self.game_over or not self.dragging:
             return
 
         destination = self.get_square_from_position(event.pos)
@@ -266,17 +291,41 @@ class GameWindow:
                 if event.button == 1:
                     self.handle_mouse_up(event)
 
+    def get_king_in_check(self):
+        """Retorna a casa do rei que está em xeque."""
+
+        if not self.board.is_check():
+            return None
+
+        king_color = self.board.turn
+
+        return self.board.king(king_color)
+
+    def get_checkmate_kings(self):
+        """Retorna as casas dos reis vencedor e derrotado."""
+
+        if not self.board.is_checkmate():
+            return None
+
+        losing_king = self.board.king(self.board.turn)
+        winning_king = self.board.king(not self.board.turn)
+
+        return winning_king, losing_king
+
     def draw_board(self) -> None:
         square_size = self.WIDTH // 8
 
         destinations = []
 
-        if self.selected_square is not None:
+        if self.selected_square is not None and not self.game_over:
             destinations = self.get_legal_destinations(
                 self.selected_square
             )
 
-                # Casas do último movimento
+        king_in_check = self.get_king_in_check()
+        checkmate_kings = self.get_checkmate_kings()
+
+        # Casas do último movimento
         last_move_squares = []
 
         if self.last_move is not None:
@@ -284,7 +333,7 @@ class GameWindow:
                 self.last_move.from_square,
                 self.last_move.to_square,
             ]
-        
+
         for row in range(8):
             for col in range(8):
 
@@ -307,6 +356,7 @@ class GameWindow:
 
                 current_square = chess.square(col, 7 - row)
 
+                # Destaque do último movimento
                 if current_square in last_move_squares:
                     highlight = pygame.Surface(
                         (square_size, square_size),
@@ -319,7 +369,37 @@ class GameWindow:
                         (col * square_size, row * square_size),
                     )
 
-                if self.selected_square is not None:
+                # Destaque vermelho do xeque
+                if current_square == king_in_check:
+                    check_highlight = pygame.Surface(
+                        (square_size, square_size),
+                        pygame.SRCALPHA,
+                    )
+                    check_highlight.fill((220, 40, 40, 130))
+
+                    self.screen.blit(
+                        check_highlight,
+                        (col * square_size, row * square_size),
+                    )
+
+                # Destaque verde do rei vencedor no xeque-mate
+                if checkmate_kings is not None:
+                    winning_king, losing_king = checkmate_kings
+
+                    if current_square == winning_king:
+                        checkmate_highlight = pygame.Surface(
+                            (square_size, square_size),
+                            pygame.SRCALPHA,
+                        )
+                        checkmate_highlight.fill((40, 190, 80, 150))
+
+                        self.screen.blit(
+                            checkmate_highlight,
+                            (col * square_size, row * square_size),
+                        )
+
+                # Destaque da peça selecionada
+                if self.selected_square is not None and not self.game_over:
                     selected_col = chess.square_file(
                         self.selected_square
                     )
@@ -340,7 +420,7 @@ class GameWindow:
                             4,
                         )
 
-        # Desenha os destinos legais.
+        # Desenha os destinos legais
         for destination in destinations:
             center = self.get_square_center(destination)
 
@@ -355,7 +435,7 @@ class GameWindow:
                 else self.DARK_SQUARE
             )
 
-            # Escurece a cor original da casa.
+            # Escurece a cor original da casa
             darker_color = tuple(
                 max(0, channel - 45)
                 for channel in square_color
@@ -486,6 +566,7 @@ class GameWindow:
             return
 
         image = self.get_sprite(piece)
+
         image = pygame.transform.scale(
             image,
             (115, 115),
@@ -545,12 +626,57 @@ class GameWindow:
         if progress >= 1.0:
             self.animation = None
 
+    def draw_checkmate_marker(self):
+        """Desenha o símbolo # sobre o rei derrotado."""
+
+        checkmate_kings = self.get_checkmate_kings()
+
+        if checkmate_kings is None:
+            return
+
+        winning_king, losing_king = checkmate_kings
+
+        center_x, center_y = self.get_square_center(losing_king)
+
+        # Posiciona o símbolo próximo ao canto superior direito do rei.
+        marker_position = (
+            center_x + 22,
+            center_y - 22,
+        )
+
+        marker_shadow = self.checkmate_font.render(
+            "#",
+            True,
+            (20, 20, 20),
+        )
+
+        marker = self.checkmate_font.render(
+            "#",
+            True,
+            (255, 255, 255),
+        )
+
+        shadow_rect = marker_shadow.get_rect(
+            center=(
+                marker_position[0] + 2,
+                marker_position[1] + 2,
+            )
+        )
+
+        marker_rect = marker.get_rect(
+            center=marker_position
+        )
+
+        self.screen.blit(marker_shadow, shadow_rect)
+        self.screen.blit(marker, marker_rect)
+
     def update(self) -> None:
         self.draw_board()
-        self.draw_coordinates()
         self.draw_pieces()
         self.draw_dragged_piece()
         self.draw_animation()
+        self.draw_coordinates()
+        self.draw_checkmate_marker()
 
         pygame.display.flip()
 
