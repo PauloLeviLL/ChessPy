@@ -58,6 +58,8 @@ class GameWindow:
 
         # Animação
         self.animation = None
+        # Último movimento
+        self.last_move = None
 
     def load_sprites(self, color: str = "black") -> dict:
         sprite_path = f"assets/sprites/{color}/"
@@ -176,6 +178,8 @@ class GameWindow:
         if move not in self.board.legal_moves:
             return False
 
+        self.last_move = move
+
         # Inicia a animação antes de atualizar o estado do tabuleiro
         if animate:
             self.start_animation(move, moving_piece)
@@ -272,6 +276,15 @@ class GameWindow:
                 self.selected_square
             )
 
+                # Casas do último movimento
+        last_move_squares = []
+
+        if self.last_move is not None:
+            last_move_squares = [
+                self.last_move.from_square,
+                self.last_move.to_square,
+            ]
+        
         for row in range(8):
             for col in range(8):
 
@@ -291,6 +304,20 @@ class GameWindow:
                         square_size,
                     ),
                 )
+
+                current_square = chess.square(col, 7 - row)
+
+                if current_square in last_move_squares:
+                    highlight = pygame.Surface(
+                        (square_size, square_size),
+                        pygame.SRCALPHA,
+                    )
+                    highlight.fill((255, 220, 80, 85))
+
+                    self.screen.blit(
+                        highlight,
+                        (col * square_size, row * square_size),
+                    )
 
                 if self.selected_square is not None:
                     selected_col = chess.square_file(
@@ -346,7 +373,8 @@ class GameWindow:
                     self.screen,
                     darker_color,
                     center,
-                    34,
+                    36,
+                    5,
                 )
 
     def draw_coordinates(self) -> None:
@@ -458,6 +486,10 @@ class GameWindow:
             return
 
         image = self.get_sprite(piece)
+        image = pygame.transform.scale(
+            image,
+            (115, 115),
+        )
 
         # Pequeno deslocamento para dar sensação de suspensão.
         position = (
